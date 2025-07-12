@@ -19,7 +19,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.cuttingedge.spiralrafflepoc.R
 import com.cuttingedge.spiralrafflepoc.ui.data.Player
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.cos
@@ -39,7 +42,6 @@ import kotlin.math.exp
 import kotlin.math.sin
 
 fun Float.toRadian(): Float = this / 180f * Math.PI.toFloat()
-fun Float.toDegree(): Float = this * 180f / Math.PI.toFloat()
 
 fun rotatePointAroundAnotherPoint(
     pointToRotate: Offset,
@@ -64,6 +66,7 @@ fun rotatePointAroundAnotherPoint(
     return Offset(rotatedX.toFloat(), rotatedY.toFloat())
 }
 
+private const val TAG = "SpiralRaffle"
 @Composable
 fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersList: List<Player>) {
 
@@ -75,11 +78,18 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
     val activePlayers = remember { mutableStateListOf<Player>() }
 
-    val animationProgress = remember { Animatable(1f) }
-
     LaunchedEffect(spiralGuidePointsPerLane, spiralPointsPerLane) {
 
-        while (true) {
+        while(true) {
+
+            val iterator = activePlayers.iterator()
+            while (iterator.hasNext()) {
+                val item = iterator.next()
+                if (item.animatable.value < 0.05) {
+                    item.reset()
+                    iterator.remove() // Safely removes the current element
+                }
+            }
 
 
             val newPlayers = playersList.filter { !it.isActive }.take(4).onEachIndexed { i, p ->
@@ -87,48 +97,30 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                 if (list != null) {
                     p.pathOffsets = list
                     p.isActive = true
-                    p.animatedValue = 1f
-                    p.offsetFromAnimatedValue = animationProgress.value
+                }
+
+                launch {
+                    p.animatable.animateTo(0f, animationSpec = tween(durationMillis = 8000))
                 }
             }
 
             activePlayers.addAll(newPlayers)
-            val iterator = activePlayers.iterator()
-            while (iterator.hasNext()) {
-                val item = iterator.next()
-                if (item.animatedValue < 0.05) {
-                    item.reset()
-                    iterator.remove() // Safely removes the current element
-                }
-            }
+            Log.d(TAG, "SpiralRaffle: active list size after adding new ones: ${activePlayers.size}")
             delay(500)
         }
-    }
-
-    LaunchedEffect(Unit) {
-        animationProgress.animateTo(
-            0f, infiniteRepeatable(
-                animation = tween(
-                    durationMillis = 6000, // Duration for one half of the oscillation (1s from 1 to 0)
-                    easing = LinearEasing // Easing for a smooth start and end
-                ),
-                // Reverse the animation after it completes, so it goes from 0 back to 1.
-                // This creates the oscillation effect.
-                repeatMode = androidx.compose.animation.core.RepeatMode.Restart
-            )
-        )
     }
 
     Canvas(
         modifier = modifier
             .aspectRatio(3f / 4f)
             .background(color = Color(0xFF1F1F1F))
+            .clipToBounds()
     ) {
 
         // Spiral parameters (same as before)
         val a = 10f
         val b = 0.95f
-        val numRevolutions = 0.65f
+        val numRevolutions = 1f
         val totalTheta = numRevolutions * 2 * PI.toFloat()
 
         val numPoints = 64 // For drawing the spiral curve
@@ -246,26 +238,21 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
             }
         }
 
-        val widthPx = 24.dp.toPx()
-        val heightPx = 24.dp.toPx()
+        val widthPx = 48.dp.toPx()
+        val heightPx = 48.dp.toPx()
+
 
         for (p in activePlayers) {
-
-            val adjustedAnimatedValue = if (p.animatedValue > p.offsetFromAnimatedValue) animationProgress.value + (1.minus(
-                    p.offsetFromAnimatedValue
-                )) else animationProgress.value
-            p.animatedValue = adjustedAnimatedValue
-
-
 
             val pos = p.currentPos
 
             val size = IntSize(
-                widthPx.times(adjustedAnimatedValue).coerceIn(widthPx.div(2), widthPx).toInt(),
-                heightPx.times(adjustedAnimatedValue).coerceIn(heightPx.div(2), heightPx).toInt()
+                widthPx.times(p.animatable.value).coerceIn(widthPx.div(3), widthPx).toInt(),
+                heightPx.times(p.animatable.value).coerceIn(heightPx.div(3), heightPx).toInt()
             )
             val halfSize = size.div(2)
 
+            Log.d(TAG, "SpiralRaffle: ${size}")
             drawImage(
                 defaultBitmap,
                 dstSize = size,

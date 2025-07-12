@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         val numOfSpirals = 4
 
         with(playersList) {
-            for (i in 0 until 40) {
+            for (i in 0 until 80) {
                 add(
                     Player(
                         id = UUID.randomUUID(),
