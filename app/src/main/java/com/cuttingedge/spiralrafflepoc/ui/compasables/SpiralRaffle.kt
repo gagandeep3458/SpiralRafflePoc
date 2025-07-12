@@ -1,27 +1,18 @@
 package com.cuttingedge.spiralrafflepoc.ui.compasables
 
-import android.util.Log
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -39,7 +30,9 @@ import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
+import kotlin.math.ln
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 fun Float.toRadian(): Float = this / 180f * Math.PI.toFloat()
 
@@ -66,7 +59,13 @@ fun rotatePointAroundAnotherPoint(
     return Offset(rotatedX.toFloat(), rotatedY.toFloat())
 }
 
+fun getTotalArcLength(a: Float, b: Float, theta: Float): Float {
+    return (a * sqrt(1 + b * b) / b) * exp(b * theta)
+}
+
+
 private const val TAG = "SpiralRaffle"
+
 @Composable
 fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersList: List<Player>) {
 
@@ -80,33 +79,46 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
     LaunchedEffect(spiralGuidePointsPerLane, spiralPointsPerLane) {
 
-        while(true) {
+        while (true) {
 
             val iterator = activePlayers.iterator()
             while (iterator.hasNext()) {
                 val item = iterator.next()
-                if (item.animatable.value < 0.05) {
+                if (item.posAnimatable.value < 0.05) {
                     item.reset()
                     iterator.remove() // Safely removes the current element
                 }
             }
 
 
-            val newPlayers = playersList.filter { !it.isActive }.take(4).onEachIndexed { i, p ->
-                val list = spiralGuidePointsPerLane[i]
-                if (list != null) {
-                    p.pathOffsets = list
-                    p.isActive = true
-                }
+            val newPlayers =
+                playersList.filter { !it.isActive }.take(numOfSpirals).onEachIndexed { i, p ->
+                    val list = spiralGuidePointsPerLane[i]
+                    if (list != null) {
+                        p.pathOffsets = list
+                        p.isActive = true
+                    }
 
-                launch {
-                    p.animatable.animateTo(0f, animationSpec = tween(durationMillis = 8000))
+                    launch {
+                        p.posAnimatable.animateTo(
+                            0f,
+                            animationSpec = tween(durationMillis = 6000, easing = LinearEasing)
+                        )
+                    }
+                    launch {
+                        delay(4000)
+                        p.scaleAnimatable.animateTo(
+                            0.4f,
+                            animationSpec = tween(
+                                durationMillis = 2000,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+                    }
                 }
-            }
 
             activePlayers.addAll(newPlayers)
-            Log.d(TAG, "SpiralRaffle: active list size after adding new ones: ${activePlayers.size}")
-            delay(500)
+            delay(600)
         }
     }
 
@@ -120,16 +132,15 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
         // Spiral parameters (same as before)
         val a = 10f
         val b = 0.95f
-        val numRevolutions = 1f
-        val totalTheta = numRevolutions * 2 * PI.toFloat()
+        val numRevolutions = 0.8f
+        val thetaMin = 0.0f
+        val thetaMax = numRevolutions * 2 * PI.toFloat()
 
         val numPoints = 64 // For drawing the spiral curve
-        val numPointsForGuide = 350 // For drawing the spiral curve
+        val numPointsForGuide = 512 // For drawing the spiral curve
 
         val centerX = size.width / 2f
         val centerY = size.height / 2f
-
-        val initialTheta = 0.0f
 
         val spiralOffset = 360f.div(numOfSpirals)
         val imageGuideSpiralOffset = spiralOffset.div(2)
@@ -159,14 +170,14 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                 val points = mutableListOf<Offset>()
 
                 // Calculate the first point of the spiral for path drawing
-                var r = a * exp(b * initialTheta)
-                var x = r * cos(initialTheta)
-                var y = r * sin(initialTheta)
+                var r = a * exp(b * thetaMin)
+                var x = r * cos(thetaMin)
+                var y = r * sin(thetaMin)
                 points.add(Offset(centerX + x, centerY + y))
 
                 // Calculate the spiral curve points
                 for (j in 1..numPoints) {
-                    val theta = initialTheta + (j.toFloat() / numPoints) * totalTheta
+                    val theta = thetaMin + (j.toFloat() / numPoints) * thetaMax
                     r = a * exp(b * theta)
                     x = r * cos(theta)
                     y = r * sin(theta)
@@ -188,45 +199,55 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
         // Draw Guide Spirals for Images
         if (spiralGuidePointsPerLane.isNotEmpty()) {
-/*            for (pointsList in spiralGuidePointsPerLane.values) {
-                val path = Path()
+            /*            for (pointsList in spiralGuidePointsPerLane.values) {
+                            val path = Path()
 
-                val firstPoint = pointsList.first()
+                            val firstPoint = pointsList.first()
 
-                path.moveTo(firstPoint.x, firstPoint.y)
+                            path.moveTo(firstPoint.x, firstPoint.y)
 
-                for (i in 1 until pointsList.size) {
-                    path.lineTo(pointsList[i].x, pointsList[i].y)
-                }
+                            for (i in 1 until pointsList.size) {
+                                path.lineTo(pointsList[i].x, pointsList[i].y)
+                            }
 
-                drawPath(
-                    path = path,
-                    color = Color(0xFF095F0A).copy(alpha = 0.2f),
-                    style = Stroke(width = 2.dp.toPx())
-                )
-            }*/
+                            drawPath(
+                                path = path,
+                                color = Color(0xFF095F0A).copy(alpha = 0.2f),
+                                style = Stroke(width = 2.dp.toPx())
+                            )
+                        }*/
         } else {
-            for (i in 0 until numOfSpirals) {
+
+            val totalArcLength =
+                getTotalArcLength(a, b, thetaMax) - getTotalArcLength(a, b, thetaMin)
+
+            val segmentLength: Float = totalArcLength / (numPointsForGuide - 1f)
+
+            for (i in 0..numOfSpirals) {
 
                 val points = mutableListOf<Offset>()
 
-                // Calculate the first point of the spiral for path drawing
-                var r = a * exp(b * initialTheta)
-                var x = r * cos(initialTheta)
-                var y = r * sin(initialTheta)
-                points.add(Offset(centerX + x, centerY + y))
+                var currentTheta = thetaMin
+
+                val p = Offset(a * cos(currentTheta), a * sin(currentTheta))
+
+                points.add(p.plus(Offset(centerX, centerY)))
 
                 // Calculate the spiral curve points
-                for (j in 1..numPointsForGuide) {
-                    val theta = initialTheta + (j.toFloat() / numPointsForGuide) * totalTheta
-                    r = a * exp(b * theta)
-                    x = r * cos(theta)
-                    y = r * sin(theta)
+                for (j in 1 until numPointsForGuide) {
+                    val theta = j * segmentLength
 
-                    val p = Offset(centerX + x, centerY + y)
+                    val term1 = (theta * b) / (a * sqrt(1 + b * b))
+                    val term2 = exp(b * thetaMin)
+
+                    val currentTheta = (1 / b) * ln((term1 + term2).toDouble()).toFloat()
+
+                    val r = a * exp(b * currentTheta)
+
+                    val p = Offset(r * cos(currentTheta), r * sin(currentTheta))
 
                     val rotatedP = rotatePointAroundAnotherPoint(
-                        pointToRotate = p,
+                        pointToRotate = p.plus(Offset(centerX, centerY)),
                         centerOfRotation = center,
                         i * spiralOffset + imageGuideSpiralOffset
                     )
@@ -238,21 +259,19 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
             }
         }
 
-        val widthPx = 48.dp.toPx()
-        val heightPx = 48.dp.toPx()
-
+        val widthPx = 42.dp.toPx()
+        val heightPx = 42.dp.toPx()
 
         for (p in activePlayers) {
 
             val pos = p.currentPos
 
             val size = IntSize(
-                widthPx.times(p.animatable.value).coerceIn(widthPx.div(3), widthPx).toInt(),
-                heightPx.times(p.animatable.value).coerceIn(heightPx.div(3), heightPx).toInt()
+                widthPx.times(p.scaleAnimatable.value).toInt(),
+                heightPx.times(p.scaleAnimatable.value).toInt()
             )
             val halfSize = size.div(2)
 
-            Log.d(TAG, "SpiralRaffle: ${size}")
             drawImage(
                 defaultBitmap,
                 dstSize = size,
