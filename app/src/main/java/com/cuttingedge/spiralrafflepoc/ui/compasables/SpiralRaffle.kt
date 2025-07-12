@@ -188,7 +188,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
         // Draw Guide Spirals for Images
         if (spiralGuidePointsPerLane.isNotEmpty()) {
-            for (pointsList in spiralGuidePointsPerLane.values) {
+/*            for (pointsList in spiralGuidePointsPerLane.values) {
                 val path = Path()
 
                 val firstPoint = pointsList.first()
@@ -204,7 +204,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                     color = Color(0xFF095F0A).copy(alpha = 0.2f),
                     style = Stroke(width = 2.dp.toPx())
                 )
-            }
+            }*/
         } else {
             for (i in 0 until numOfSpirals) {
 
