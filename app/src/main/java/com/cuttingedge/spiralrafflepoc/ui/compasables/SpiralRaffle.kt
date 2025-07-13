@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -81,7 +82,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
     val numPoints = 64 // For drawing the spiral curve
     val numPointsForGuide = 512 // For drawing the spiral curve
     val streakSizeInPoints = 20
-    val numOfPointsBeforeSpiralStops = 4
+    val numOfPointsBeforeSpiralStops = 2
 
     val spiralOffset = 360f.div(numOfSpirals)
     val imageGuideSpiralOffset = spiralOffset.div(2)
@@ -95,6 +96,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
     val activePlayers = remember { mutableStateListOf<Player>() }
 
+    // Handles streak animation
     LaunchedEffect(Unit) {
         for (i in 0 until numOfSpirals) {
             animatedStreakPositions[i] = Animatable(numPoints.minus(1f))
@@ -104,7 +106,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                     animationSpec = infiniteRepeatable(
                         animation = tween(
                             durationMillis = 2000,
-                            delayMillis = 500
+                            delayMillis = 1500
                         ),
                     )
                 )
@@ -112,6 +114,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
         }
     }
 
+    // Handles Spiral Images animation
     LaunchedEffect(spiralGuidePointsPerLane, spiralPointsPerLane) {
         while (true) {
 
@@ -184,7 +187,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                 drawPath(
                     path = path,
                     color = Color(0xFF5F3109),
-                    style = Stroke(width = 2.dp.toPx())
+                    style = Stroke(width = Stroke.DefaultMiter)
                 )
             }
         } else {
@@ -322,6 +325,11 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
                 val spiralPoints = spiralPointsPerLane[i]
 
+                // Normalized Value of animation progress
+                val nv = (startIndexInCurve.toFloat() / numPoints.minus(1).toFloat())
+
+                val streakAlpha = -4 * nv * nv + 4 * nv
+
                 if (spiralPoints != null && spiralPoints.isNotEmpty() && startIndexInCurve > numOfPointsBeforeSpiralStops) {
                     val streakPoints = spiralPoints.slice(startIndexInCurve..endIndexInCurve)
 
@@ -336,9 +344,32 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
                         drawPath(
                             path = path,
-                            color = Color(0xFFE7AC81),
-                            style = Stroke(width = 2.dp.toPx())
+                            color = Color(0xFFD59066).copy(alpha = streakAlpha),
+                            style = Stroke(
+                                width = Stroke.DefaultMiter.times(0.8f),
+                                cap = StrokeCap.Round
+                            )
                         )
+
+                        // Might be possible to get streak edges faded (Logic needs to be developed)
+                        /*                        drawPath(
+                                                    path = path,
+                                                    brush = Brush.linearGradient(
+                                                        Pair(
+                                                            0.1f,
+                                                            Color(0xFFD59066).copy(alpha = streakAlpha)
+                                                        ),
+                                                        Pair(
+                                                            0.5f,
+                                                            Color(0xFFD59066).copy(alpha = streakAlpha)
+                                                        ),
+                                                        Pair(
+                                                            0.1f,
+                                                            Color(0xFFD59066).copy(alpha = streakAlpha)
+                                                        )
+                                                    ),
+                                                    style = Stroke(width = Stroke.DefaultMiter.times(0.8f), cap = StrokeCap.Round)
+                                                )*/
                     }
                 }
             }
