@@ -1,7 +1,10 @@
 package com.cuttingedge.spiralrafflepoc.ui.compasables
 
+import android.util.Log
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -63,12 +66,27 @@ fun getTotalArcLength(a: Float, b: Float, theta: Float): Float {
     return (a * sqrt(1 + b * b) / b) * exp(b * theta)
 }
 
-
 private const val TAG = "SpiralRaffle"
 
 @Composable
 fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersList: List<Player>) {
 
+    // Spiral parameters (same as before)
+    val a = 10f
+    val b = 0.95f
+    val numRevolutions = 0.8f
+    val thetaMin = 0.0f
+    val thetaMax = numRevolutions * 2 * PI.toFloat()
+
+    val numPoints = 64 // For drawing the spiral curve
+    val numPointsForGuide = 512 // For drawing the spiral curve
+    val streakSizeInPoints = 20
+    val numOfPointsBeforeSpiralStops = 4
+
+    val spiralOffset = 360f.div(numOfSpirals)
+    val imageGuideSpiralOffset = spiralOffset.div(2)
+
+    val animatedStreakPositions = remember { mutableMapOf<Int, Animatable<Float, *>>() }
 
     val spiralPointsPerLane = remember { mutableMapOf<Int, List<Offset>>() }
     val spiralGuidePointsPerLane = remember { mutableMapOf<Int, List<Offset>>() }
@@ -77,8 +95,24 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
 
     val activePlayers = remember { mutableStateListOf<Player>() }
 
-    LaunchedEffect(spiralGuidePointsPerLane, spiralPointsPerLane) {
+    LaunchedEffect(Unit) {
+        for (i in 0 until numOfSpirals) {
+            animatedStreakPositions[i] = Animatable(numPoints.minus(1f))
+            launch {
+                animatedStreakPositions[i]!!.animateTo(
+                    0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(
+                            durationMillis = 2000,
+                            delayMillis = 500
+                        ),
+                    )
+                )
+            }
+        }
+    }
 
+    LaunchedEffect(spiralGuidePointsPerLane, spiralPointsPerLane) {
         while (true) {
 
             val iterator = activePlayers.iterator()
@@ -131,23 +165,10 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
             .clipToBounds()
     ) {
 
-        // Spiral parameters (same as before)
-        val a = 10f
-        val b = 0.95f
-        val numRevolutions = 0.8f
-        val thetaMin = 0.0f
-        val thetaMax = numRevolutions * 2 * PI.toFloat()
-
-        val numPoints = 64 // For drawing the spiral curve
-        val numPointsForGuide = 512 // For drawing the spiral curve
-
         val centerX = size.width / 2f
         val centerY = size.height / 2f
 
-        val spiralOffset = 360f.div(numOfSpirals)
-        val imageGuideSpiralOffset = spiralOffset.div(2)
-
-        // Draw Visible Spirals
+        // Spirals
         if (spiralPointsPerLane.isNotEmpty()) {
             for (pointsList in spiralPointsPerLane.values) {
                 val path = Path()
@@ -199,7 +220,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
             }
         }
 
-        // Draw Guide Spirals for Images
+        // Guide Spirals for Images
         if (spiralGuidePointsPerLane.isNotEmpty()) {
             /*            for (pointsList in spiralGuidePointsPerLane.values) {
                             val path = Path()
@@ -264,6 +285,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
         val widthPx = 42.dp.toPx()
         val heightPx = 42.dp.toPx()
 
+        // Draw Player Images
         for (p in activePlayers) {
 
             val pos = p.currentPos
@@ -282,6 +304,44 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                     pos.y.toInt().minus(halfSize.height)
                 )
             )
+        }
+
+        Log.d(TAG, "SpiralRaffle: animated value ${animatedStreakPositions[0]?.value?.toInt()}")
+
+        if (animatedStreakPositions.size == numOfSpirals) {
+            for (i in 0 until numOfSpirals) {
+
+                val startIndexInCurve = animatedStreakPositions[i]!!.value.toInt()
+
+                val diff = numPoints.minus(1) - startIndexInCurve
+
+                val endIndexInCurve =
+                    if (diff < streakSizeInPoints) startIndexInCurve.plus(diff) else startIndexInCurve.plus(
+                        streakSizeInPoints
+                    )
+
+                val spiralPoints = spiralPointsPerLane[i]
+
+                if (spiralPoints != null && spiralPoints.isNotEmpty() && startIndexInCurve > numOfPointsBeforeSpiralStops) {
+                    val streakPoints = spiralPoints.slice(startIndexInCurve..endIndexInCurve)
+
+                    if (streakPoints.size >= 2) {
+                        val path = Path()
+                        path.moveTo(streakPoints.first().x, streakPoints.first().y)
+
+                        for (j in 1 until streakPoints.size) {
+                            val p = streakPoints[j]
+                            path.lineTo(p.x, p.y)
+                        }
+
+                        drawPath(
+                            path = path,
+                            color = Color(0xFFE7AC81),
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                    }
+                }
+            }
         }
     }
 }
