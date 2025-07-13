@@ -59,7 +59,7 @@ fun rotatePointAroundAnotherPoint(
     val rotatedX = rotatedXTranslated + centerOfRotation.x
     val rotatedY = rotatedYTranslated + centerOfRotation.y
 
-    return Offset(rotatedX.toFloat(), rotatedY.toFloat())
+    return Offset(rotatedX, rotatedY)
 }
 
 fun getTotalArcLength(a: Float, b: Float, theta: Float): Float {
