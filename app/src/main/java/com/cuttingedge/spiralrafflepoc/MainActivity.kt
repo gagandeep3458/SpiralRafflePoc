@@ -23,7 +23,10 @@ class MainActivity : ComponentActivity() {
         val numOfSpirals = 4
 
         with(playersList) {
-            for (i in 0 until 80) {
+
+            // Make sure list has size more than the avg number of players you want to be displayed on screen
+            val numOfPlayers = 40
+            for (i in 0 until numOfPlayers) {
                 add(
                     Player(
                         id = UUID.randomUUID(),

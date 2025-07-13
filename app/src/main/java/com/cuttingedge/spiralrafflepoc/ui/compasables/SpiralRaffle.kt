@@ -1,6 +1,5 @@
 package com.cuttingedge.spiralrafflepoc.ui.compasables
 
-import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -308,8 +307,6 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                 )
             )
         }
-
-        Log.d(TAG, "SpiralRaffle: animated value ${animatedStreakPositions[0]?.value?.toInt()}")
 
         if (animatedStreakPositions.size == numOfSpirals) {
             for (i in 0 until numOfSpirals) {
