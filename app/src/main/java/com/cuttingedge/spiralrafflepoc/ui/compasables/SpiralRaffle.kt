@@ -106,6 +106,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                         )
                     }
                     launch {
+                        // Delay to scale down the Player Image
                         delay(4000)
                         p.scaleAnimatable.animateTo(
                             0.4f,
@@ -118,6 +119,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                 }
 
             activePlayers.addAll(newPlayers)
+            // Launch Delay for each Players from spiral end
             delay(600)
         }
     }
@@ -240,7 +242,7 @@ fun SpiralRaffle(modifier: Modifier = Modifier, numOfSpirals: Int = 4, playersLi
                     val term1 = (theta * b) / (a * sqrt(1 + b * b))
                     val term2 = exp(b * thetaMin)
 
-                    val currentTheta = (1 / b) * ln((term1 + term2).toDouble()).toFloat()
+                    currentTheta = (1 / b) * ln((term1 + term2).toDouble()).toFloat()
 
                     val r = a * exp(b * currentTheta)
 
